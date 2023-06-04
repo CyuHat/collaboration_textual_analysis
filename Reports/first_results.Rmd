@@ -1,0 +1,197 @@
+---
+title: "First Results"
+author: ""
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+# Libraries
+library(tidyverse)
+library(stm)
+library(broom)
+
+# Data
+load("Clean_Data/topic_tryout.rda")
+load("Clean_Data/res_searchk.rda")
+load("Clean_Data/mystm.rda")
+
+# options
+theme_set(theme_bw())
+```
+
+# Introduction:
+
+Welcome to this report presenting the initial results of our analysis aimed at determining the number of themes (topics) within a collection of texts. In this report, we will discuss the testing process conducted using three different numbers of themes, specifically 10, 15 and 16. While the choice of the exact number of themes is subject to further discussion, the primary objective was to assess the effectiveness of the analysis technique.
+
+Before delving into the findings, it is important to acknowledge that the visual representations provided in this report may appear ugly. I apologize for any inconvenience caused by the wobbly graphics and assure you that the next ones will be better.
+
+Without further ado, let us explore the outcomes of our analysis and gain valuable insights into the number of topics identified within the texts under examination.
+
+## Goal
+
+After choosing a number of subjects, the goal is to see if models with a different number of subjects appear to make sense. Using the results from this report, the following questions need to be answered:
+
+1. Does any of the three models make sense, or should a different number of subjects be chosen?
+    1. If at least one of the models seems suitable, which one is most appropriate according to us?
+    2. If none of the three selected models are suitable, what number of models should we aim for?
+2. What did we discover with this results?
+3. Should we continue with this topic modeling model?
+
+# Number of topics
+
+The model selection used was provided by the stm packages. It allow to collect metrics performance on different number of topics to help chose the "optimal" ones (in reality there is no such a thing). The model selection give the following metrics:
+
+**semcoh**: Semantic coherence of each model. It is maximized when the most probable words in a given topic frequently co-occur together.
+
+**exclus**: Exclusivity of each model. FREX method is used to measure it. FREX is the weighted harmonic mean of the word’s rank in terms of exclusivity and frequency. **The more some words are exclusive to certain topics, the higher the score is.**
+
+Since `semcoh` and `exclus` are in different scales, we scale them between 0 and 1. Then to take the higher score of both of them, we sum the two metrics. IN the following graphics we can see the standardized score of each number of topic for each metric. Here is the standardized graph:
+
+```{r}
+searchk_metrics <-
+  res_searchk$results %>%
+  mutate_all(unlist) %>% 
+  select(K, exclus, semcoh) %>% 
+  mutate_at(.vars = c("exclus", "semcoh"), ~scales::rescale(.x)) %>% 
+  mutate(sum = exclus + semcoh) %>% 
+  gather("metrics", "value", exclus, semcoh, sum) %>% 
+  mutate(type = if_else(metrics == "sum", "Sum", "Metrics"))
+
+searchk_metrics %>% 
+  ggplot(aes(K, value, color = metrics)) +
+  geom_line(size = 1.5) +
+  labs(title = "Metrics values for the structural topic modeling",
+       subtitle = "Standardized",
+       x = "Number of topics") +
+  scale_x_continuous(breaks = 3:20) +
+  facet_wrap(~type, ncol = 1, scales = "free")
+```
+
+We then take the top 10 of number of topics based on the sum. Based on the following graph, we suggest taking 15 and 16 topics. Since the exclusivity keep getting better with the number of topics (if each document was it own topics, that means no grouping, the exclusivity will be the highest which isn't helpful), we need to be carful with the choice of models. Indeed, after 12 topics the sum is more influenced by the exclusivity. Thats why we also take the topic 10 which is ranked third. **Here the topics chosen are suggestion from the computer, the researchers have the last word!** (for instance we could go with another number of topics). Here is the top 10 number of topics:
+
+```{r}
+searchk_metrics %>% 
+  filter(metrics == "sum") %>% 
+  top_n(value, n = 10) %>% 
+  mutate(k = factor(K)) %>% 
+  ggplot(aes(reorder(k, value), value)) +
+  geom_col(fill = "cyan", alpha = 0.4, color = "black") +
+  geom_label(aes(label = round(value, 2))) +
+  coord_flip() +
+  labs(title = "Number of topics ranked based on",
+       subtitle = "the sum of standarized semantic coherence and exclusivity",
+       x = "Number of topics")
+```
+
+# Topic proportion
+
+Here are the topic prevalence for the models with 10, 15 and 16 topics. For eahc topic in the graph we have the following informations: 
+
+1. A line indicating size of the topic
+2. The topic name for ex. "Topic 8"
+3. And the three most frquent words
+
+For example in the model with 10 topics where the topic one is the most frequent whe see that:
+
+1. The proportion of this topic is between 0.2 and 0.3 (20%-30%)
+2. The topic is named "Topic 1"
+3. The most frequent words are "trabajo", "personas" and "empresa"
+
+**Note: a document can have multiple topic inside it. The proportion is calculated overall**
+
+## 10 topics
+
+```{r}
+plot(topic_10)
+```
+
+
+## 15 topics
+
+```{r}
+plot(topic_15)
+```
+
+
+## 16 topics
+
+```{r}
+plot(topic_16)
+```
+
+# Content of each topic
+
+Now we see the content for each topic model. For each topic inside a topic model we get the top word using different metrics. These word are supposed to be representative of the topics. Here is the meaning of eache metrics:
+
+**Highest Prob**: Words most likely to be in this topic.
+**FREX**: Words that tend to appear exclusively in this topic
+**Lift**: Also an exclusivity mesure but give more importance to word that are rare in other topics
+**Score**: Same as Lift but is less influenced by the size difference between topics
+
+**The goal is to see if these topics make sens**. We have to see which topics could be removed and which topic could be named. Maybe 16 topics is not the right number and 10 or 15 would be better. Or Maybe none of them make sens and we have to chose another number that make more sens.
+
+*Note: There's still some cleaning up to do.*
+
+---
+
+## 10 topics related words
+
+```{r}
+labelTopics(topic_10)
+```
+
+---
+
+## 15 topics related words
+
+```{r}
+labelTopics(topic_15)
+```
+
+---
+
+## 16 topics related words
+
+```{r}
+labelTopics(topic_16)
+```
+
+---
+
+# Document that are highly associated with topics
+
+We can see here which document are the most related to each topic. We limit the number of documents to 3.
+
+**The goal here is to see if the association make sens**
+
+---
+
+## 10 topics related documents
+
+```{r}
+findThoughts(topic_10, mystm$meta$file, n = 3)
+```
+
+---
+
+## 15 topics related documents
+
+```{r}
+findThoughts(topic_15, mystm$meta$file, n = 3)
+```
+
+---
+
+## 16 topics related documents
+
+```{r}
+findThoughts(topic_16, mystm$meta$file, n = 3)
+```
+
+
+
