@@ -1,0 +1,416 @@
+---
+title: "Analysis with 16 topics"
+author: "Vestin Hategekimana"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.height = 6, fig.width = 9)
+```
+
+## Introduction
+
+In this papre, we delve into the fascinating world of topic modeling using the stm package in R. Our goal is to uncover latent themes and patterns within a vast collection of textual data. The journey has been both intriguing and time-consuming, requiring meticulous efforts, including a fair amount of reverse engineering. While we have made significant progress, there is still work to be done as we strive to refine our models further.
+
+The initial stages of our analysis have predominantly focused on descriptive exploration, employing a wide array of visualization techniques to gain insights into the underlying structure of the data. Through these visualizations, we have sought to extract meaningful information and unravel the intricate relationships between topics, shedding light on the hidden dynamics within the corpus.
+
+One crucial aspect of our investigation involved data cleaning, a meticulous process that aimed to enhance the quality and reliability of our results. Notably, after undertaking the cleaning steps, we observed significant changes in the composition of the initial 16 topics. These alterations prompted us to diligently monitor and document their transformations, ensuring a comprehensive understanding of the evolution throughout the analysis.
+
+To ensure a comprehensive record, we have included a detailed description of the revised 16 topics in the annex section, allowing us to track their evolution before their eventual merging. However, we anticipate that with further data cleaning, the likelihood of requiring additional revisions to the topics will diminish, providing a more stable foundation for subsequent analyses.
+
+```{r echo =FALSE}
+# Libraries----
+pacman::p_load(rio, tidyverse, stm, tidytext, ggwordcloud, sjPlot, DescTools, ggpage, quanteda, patchwork)
+
+# Data----
+mystm <- import("Clean_Data/mystm.rda")
+mydfm <- import("Clean_Data/mydfm.rda")
+topic_16 <- import("Clean_Data/topic_16.rda")
+full_stm <- import("Clean_Data/full_stm.rda")
+tidy_gamma <- import("Clean_Data/tidy_gamma.rda")
+tidy_beta <- import("Clean_Data/tidy_beta.rda")
+topic_prevalence <- import("Clean_Data/topic_prevalence.rda")
+mytext <- import("Clean_Data/mytext.rda")
+
+# Options----
+theme_set(theme_bw())
+```
+
+## 16 topics
+
+For the analysis we chose to use 16 topics to have a more refined distribution of topics. Then we grouped theme in 3 themes:
+
+1.  **(Security) Securitization framework**
+    -   Topics: 2, 3, 4, 13
+2.  **(Human right) Human rights / migrant rights framework**
+    -   Topics: 7, 9, 16
+3.  **(Administration) Administrative framework**
+    -   Topics: 1, 5, 6, 8, 10, 12
+
+Here is an illustration on how the topics are distributed:
+
+```{r echo=FALSE}
+new_prevalence <- 
+  topic_prevalence %>% 
+  mutate(theme = case_when(
+           topic %in% c(2, 4, 13) ~ "1.Security", # Topic 3 already removed
+           topic %in% c(5, 9, 16) ~ "2.Human rights",
+           topic == 3 ~ "None",
+           TRUE ~ "3.Administration"
+         ),
+         topic = str_c("Topic ", topic),
+         topic = reorder(topic, topic_prev))
+```
+
+```{r}
+new_prevalence %>% 
+  ggplot(aes(topic_prev, topic, fill = theme)) +
+  geom_col(color = "black", alpha = 0.4) +
+  geom_label(aes(label = scales::percent(topic_prev, 0.1))) +
+  scale_x_continuous(labels = scales::percent) +
+  labs(title = "Topic prevalence by theme",
+       subtitle = "In the whole corpus",
+       fill = "Theme", y = NULL,
+       x = "Prevalence") +
+  scale_fill_manual(values = c("#F8766D", "#00BA38", "#619CFF", "purple"))
+```
+
+Each theme will be described.
+
+```{r echo=FALSE}
+tidy_wordcloud <- 
+  tidy_beta %>% 
+  group_by(theme) %>% 
+  top_n(beta, n = 30) %>% 
+  ungroup()
+```
+
+
+### (Security) Securitization framework
+
+```{r}
+set.seed(7)
+tidy_wordcloud %>% 
+  filter(theme == "1.Security") %>% 
+  arrange(-beta) %>% 
+  ggplot(aes(label = term, size = beta, color = beta)) +
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 15) +
+  theme_minimal() +
+  labs(title = "Securitization framework wordcloud",
+       subtitle = "Highest probability word") +
+  scale_color_gradient(low = "darkred", high = "red")
+```
+
+### (Human right) Human rights / migrant rights framework
+
+```{r}
+set.seed(7)
+tidy_wordcloud %>% 
+  filter(theme == "2.Human rights") %>% 
+  arrange(-beta) %>% 
+  ggplot(aes(label = term, size = beta, color = beta)) +
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 15) +
+  theme_minimal() +
+  labs(title = "Human rights / migrant rights framework wordcloud",
+       subtitle = "Highest probability word") +
+  scale_color_gradient(low = "darkgreen", high = "green")
+```
+
+### (Administration) Administrative framework
+
+```{r}
+set.seed(7)
+tidy_wordcloud %>% 
+  filter(theme == "3.Administration") %>% 
+  arrange(-beta) %>% 
+  ggplot(aes(label = term, size = beta, color = beta)) +
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 15) +
+  theme_minimal() +
+  labs(title = "Administrative framework wordcloud",
+       subtitle = "Highest probability word") +
+  scale_color_gradient(low = "darkblue", high = "blue")
+```
+
+## Topic prevalence
+
+### Overall
+
+The Administrative framework represents a half of the theme, wheras the Securitization framework represent ~30% and the human/migrant rights framework represent ~20%.
+
+```{r}
+new_prevalence %>% 
+  filter(theme != "None") %>% 
+  group_by(theme) %>% 
+  summarise(topic_prev = sum(topic_prev)) %>% 
+  mutate(theme = reorder(theme, topic_prev)) %>% 
+  ggplot(aes(topic_prev, theme, fill = theme)) +
+  geom_col(color = "black", alpha = 0.4) +
+  theme(legend.position = "none") +
+  geom_label(aes(label = scales::percent(topic_prev, 0.1))) +
+  scale_fill_manual(values = c("#00BA38", "#F8766D", "#619CFF")) +
+  scale_x_continuous(labels = scales::percent) +
+  labs(title = "Theme prevalence",
+       subtitle = "In the whole corpus",
+       y = NULL,
+       x = "Prevalence")
+```
+
+```{r echo = FALSE, include=FALSE}
+# Topic dominance
+tidy_gamma %>% 
+  mutate(dom = gamma > 0.5) %>% 
+  group_by(document) %>% 
+  summarise(dominance = sum(dom)) %>% 
+  ungroup() %>% 
+  mutate(dominance = dominance > 0) %>% 
+  count(dominance, sort = TRUE)
+```
+
+### Documents aligned
+
+When we align all the document to see the proportion of each topic on them, we can clearly see that almost all the documents have a dominant topic (more thant 50% of their content). Indeed only one document doesn't have any dominant topics because it was the topic 3 that we removed for inconsistance. it meens that the topic 3 was highly influenced by this document (BOME-AX-2022-6.pdf). 
+
+```{r}
+tidy_gamma %>% 
+  arrange(document, theme) %>% 
+  group_by(document) %>% 
+  mutate(o_admin = nth(gamma, 3),
+         o_sec = nth(gamma, 1)) %>% 
+  ungroup() %>% 
+  arrange(o_admin, document) %>% 
+  mutate(order = rep(1:223, each = 3),
+         order = if_else(o_admin < 0.01, 1000, order)) %>% 
+  arrange(order, o_sec, document) %>% 
+  mutate(order = rep(1:223, each = 3)) %>% 
+  ggplot(aes(order, gamma, fill = theme)) +
+  geom_col(alpha = 0.7) +
+  geom_hline(yintercept = 0.5) +
+  labs(title = "Distribution of themes on documents",
+       subtitle = "Grouped by Themes",
+       y = "Proportion",
+       x = "Documents reordered",
+       fill = "Themes") +
+  scale_y_continuous(labels = scales::percent)
+```
+
+### Prevalence by author/category
+
+When we plot the themes prevalence by author/category, we clearly see that some topic are more relate to certain institutions. Whithout surprise, human right oriented institution tend to have a bigger proportion of human/migrant right framework wheras institution from Mellila and Ceuta have more administrative framework. The "Policia Nacional", the "Guarida Civil" and Frontex tend to have more Securitization framework. We also highlight that the institution of Meililla have a good share of Securitization framework (23.6%), which is more than the administration of Ceuta.
+
+*Note: The graph is awful, I will think of a better way to draw it.*
+
+```{r}
+tidy_gamma %>% 
+  left_join(mystm$meta %>% 
+              rowid_to_column("document") %>% 
+              select(document, category, year)) %>% 
+  mutate(category = str_replace(category, " Ciudad autonoma de ", ",")) %>% 
+  group_by(category) %>% 
+  add_count() %>% 
+  ungroup() %>% 
+  mutate(gamma = gamma/(n/3)) %>% 
+  group_by(category, theme) %>% 
+  summarise(gamma = sum(gamma)) %>% 
+  ungroup() %>% 
+  group_by(category) %>% 
+  mutate(gamma = gamma/sum(gamma)) %>%  # I cheat a bit so we have round 100% no 99.99%
+  ungroup() %>% 
+  arrange(category, theme) %>%
+  group_by(category) %>% 
+  mutate(o_admin = nth(gamma, 1)) %>%
+  arrange(o_admin, category) %>% 
+  ungroup() %>% 
+  mutate(order = rep(1:8, each = 3),
+         category = reorder(category, order)) %>% 
+  ggplot(aes(gamma, category, fill = theme)) +
+  geom_col(alpha = 0.4, color = "black") +
+  geom_label(aes(label = scales::percent(gamma, 0.1)), position = position_stack(vjust = 0.5)) +
+  scale_x_continuous(labels = scales::percent) +
+  theme(legend.position = "top") +
+  labs(title = "Proportion of theme by document category",
+       fill = "Themes",
+       y = NULL,
+       x = "Proportion")
+```
+
+## In depth document analysis
+
+```{r}
+gini_doc <- 
+  tidy_gamma %>% 
+  group_by(document) %>% 
+  summarise(gini = Gini(gamma)) %>% 
+  arrange(gini) %>% 
+  ungroup()
+
+even_document <- mystm$meta$file[gini_doc$document[1]]
+```
+
+Has we have seen before, (almost) all the documents have a dominant theme. But here we are interested by documents that have less predominant themes, mining more balanced distribution of themes. To assess that we compute the gini coefficient for each document to see which one are the less inequal (more balanced). A gini coefficient of 0 inidicate no inequality (all the themes in a document have the same proportion) wheras a value of 1 indicate that only one topic si dominant with 100% of the share in a given document. Generally we except more values in between, knowing that a Gini of 0.5 already indicate a high level of ditribution inequality. In our case, the document with the lowest gini score (the most equal) already scores 0.42 (quite high inequality), it was expected since all the document have a topic dominance. It is interesting to see what document it is and which topic tend to be distributed more evenly.
+
+The most even document is `r even_document`, with a gini score of `r gini_doc$gini[1]`. By ploting various way of visualizing the distribution of the topic, we can see that indeed the document share a big proportion of administrative framework and human/migrant rights. Even though this is an administrative text, we can see that other terms related to other themes are also part of the document.
+
+```{r echo=FALSE}
+even_document_vocab <- 
+  mydfm %>% 
+  tidy() %>% 
+  filter(str_detect(document, even_document)) %>% 
+  pull(term)
+
+even_document_term_theme <- 
+  tidy_beta %>% 
+  filter(term %in% even_document_vocab) %>% 
+  group_by(term) %>% 
+  top_n(beta, n = 1) %>% 
+  ungroup()
+```
+
+
+```{r fig.width=12, fig.height=6}
+# ggpage
+page_graph <-
+  mytext %>% 
+  tibble() %>% 
+  select(doc_id, text) %>% 
+  filter(str_detect(doc_id, even_document)) %>% 
+  unnest_tokens("text", "text", "sentences") %>% 
+  ggpage_build() %>% 
+  left_join(even_document_term_theme, by = join_by(word == term)) %>% 
+  ggpage_plot(aes(fill = theme), paper.color = "white", paper.show = TRUE) +
+  theme(legend.position = "none")
+
+# Pie chart
+pie_graph <-
+  tidy_gamma %>% 
+  filter(document == gini_doc$document[1]) %>% 
+  ggplot(aes("", gamma, fill = theme)) +
+  geom_col(color = "black", alpha = 0.7, position = "stack") +
+  coord_polar(theta = "y") +
+  scale_y_continuous(labels = NULL) +
+  geom_label(aes(label = scales:::percent(gamma, 0.1)), position = position_stack(0.5), size = 2) +
+  labs(x = NULL, y = NULL, fill = "Theme") +
+  theme_void() +
+  theme(legend.position = "none")
+
+# Wordcloud
+set.seed(7)
+wordcloUd_graph <- 
+  even_document_term_theme %>% 
+  arrange(-beta) %>%
+  ggplot(aes(x = theme, label = term, size = beta, color = theme)) +
+  geom_text_wordcloud_area() +
+  scale_size_area(max_size = 24) +
+  theme_minimal()
+
+# Final plot
+(wordcloUd_graph | (pie_graph / page_graph)) +
+  plot_annotation(title = str_c("Themes distribution in the document ", even_document))
+
+```
+
+## Regression models
+
+Finally, we check if metadata such as year of publication and author/category are more related to specific topics.
+
+*Note: In our case, we grouped the topics mannually, meaning that our construct doesn't fit the stm package ecosystem. Therefore we didn't have access to the regression method recommanded by the package. We used instead a simple linear regression that give results relly close to the model used in the stm pacakge when uncertainty is not considered. Knowing that we computed a regression model using bootstraping to have better mesure of uncertainty. But ultimately, it is not enough and we must do further reverse engeenering to rebuild the regression model we are looking for latter.*
+
+In the model our reference level for the categories (so the group we will compare all the other group against) is "Acta and Boletinos Ciudad autonoma de Ceuta". For the year our reference level is 2021. For all the model, year have no relationship with the themes, meaning that they don't tend to appear more during one of the year (2021, 2022 and 2023), so the themes are constant in the amount of time.
+
+**Securitization Model**
+
+As we have seen with previously the only categories that have more chance on having the Securitization theme are oubvious ones ("Frontex", "Guardia Civil", "Policia
+nacional"). All af theses categories have positive coefficient and p-values lower than 0.05. We can also see as previously noticed that Melilla has more topic on Securitization framework than ceuta.
+
+**Human rights model**
+
+Compared to the administration of Ceuta, "Asociacion Elin", (to a lesser extent) "Frontex", "No Name Kitchen", "Solidary Wheels" show higher chance of having human/migrant rights framework in their documents.
+
+**Administration model**
+
+Finally all the categories have lesser chance than Ceuta to have the Administrative framework in their document. But the difference is lower for Melilla than the other categories.
+
+```{r}
+tidy_reg <- 
+  tidy_gamma %>% 
+  left_join(mystm$meta %>% 
+              rowid_to_column("document") %>% 
+              transmute(document,
+                        fyear = factor(year),
+                        category)) %>% 
+  group_by(theme) %>% 
+  nest() %>% 
+  mutate(model = map(data, ~lm(gamma ~ fyear + category, data = .x)))
+
+tidy_reg$model %>% 
+  tab_model(collapse.ci = TRUE,
+            show.ci = TRUE,
+            p.style = "stars",
+            bootstrap = TRUE,
+            dv.labels = c("1.Security",
+                          "2.Human rights",
+                          "3.Administration"),
+            title = "Relationship between themes and metadata")
+```
+
+
+## Annex
+
+### New topics number
+
++-----------------------+------------------+--------------------+-------------------+
+| Previous topic number | New topic number | Theme              | Theme based on... |
++=======================+==================+====================+===================+
+| 8                     | 1                | 3.  Administration | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 1                     | 2                | 1.  Security       | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 3                     | 3                | 1.  Security       | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 4                     | 4                | 1.  Security       | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 6                     | 5                | 3.  Administration | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 15                    | 6                | 3.  Administration | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 5                     | 7                | 2.  Human rigth    | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 1                     | 8                | 3.  Administration | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 9                     | 9                | 2.  Human rigth    | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 10                    | 10               | 3.  Administration | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 11                    | 11               | 3.  Administration | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 12                    | 12               | 3.  Administration | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| No previous topic     | 13               | 1.  Security       | Approximation     |
++-----------------------+------------------+--------------------+-------------------+
+| 7                     | 14               | 3.  Administration | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 14                    | 15               | 3.  Administration | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+| 16                    | 16               | 2.  Human right    | Previous topic    |
++-----------------------+------------------+--------------------+-------------------+
+
+: Tracking changes in topics
+
+## New topics related words
+
+```{r results='markup'}
+labelTopics(topic_16, n = 4)
+```
+
+## New topics related documents
+
+```{r results='markup'}
+findThoughts(topic_16, mystm$meta$file)
+```

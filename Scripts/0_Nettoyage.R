@@ -1,7 +1,5 @@
 # library----
-library(readtext)
-library(quanteda)
-library(dplyr)
+pacman::p_load(rio, readtext, quanteda, dplyr)
 
 # data----
 # NOTE: Takes 20 seconds
@@ -11,16 +9,23 @@ mytext <- readtext("Raw_Data/",
                    dvsep = "/")
 
 # Save the data
-save(mytext, file = "Clean_Data/mytext.rda")
+export(mytext, file = "Clean_Data/mytext.rda")
 
 # Cleaning----
 ##  Corpus----
 mycorpus <- corpus(mytext) 
 
 # Save the corpus
-save(mycorpus, file = "Clean_Data/mycorpus.rda")
+export(mycorpus, file = "Clean_Data/mycorpus.rds")
 
 ## Document-Feature matrix----
+## List of element to remove using regex
+regex_list = list("n\\º\\.",
+                  "^\\d\\w+",
+                  "\\w+\\d$",
+                  "_",
+                  "\\w+(\\.|\\,)\\w+")
+
 ## dfm
 ## Note: Take 1 minute
 mydfm <- 
@@ -28,19 +33,26 @@ mydfm <-
   tokens(remove_punct = TRUE,
          remove_symbols = TRUE,
          remove_numbers = TRUE,
-         remove_url = TRUE) %>% 
+         remove_url = TRUE,
+         remove_separators = TRUE,
+         split_hyphens = TRUE,
+         split_tags = TRUE) %>% 
   dfm() %>% 
   dfm_remove(c(stopwords("spanish"), stopwords("english"))) %>% 
+  dfm_select(selection = "remove",
+             valuetype = "regex",
+             min_nchar = 3,
+             pattern = regex_list) %>% 
   dfm_tolower()
 
 # Save the dfm
-save(mydfm, file = "Clean_data/mydfm.rda")
+export(mydfm, file = "Clean_data/mydfm.rda")
 
 # Convert to stm
 mystm <- convert(mydfm, to = "stm")
 
 # Save stm format
-save(mystm, file = "Clean_Data/mystm.rda")
+export(mystm, file = "Clean_Data/mystm.rda")
 
 # Next step ----
 # TODO [Vestin] (optional) install the "reprex" package for easly sharing bug
