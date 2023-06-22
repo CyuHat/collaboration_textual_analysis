@@ -25,7 +25,10 @@ To ensure a comprehensive record, we have included a detailed description of the
 
 ```{r echo =FALSE}
 # Libraries----
-pacman::p_load(rio, tidyverse, stm, tidytext, ggwordcloud, sjPlot, DescTools, ggpage, quanteda, patchwork)
+pacman::p_load(modules, rio, tidyverse, stm, tidytext, ggwordcloud, sjPlot, DescTools, ggpage, quanteda, patchwork)
+
+# Module----
+ind_doc <- use("Scripts/Fun/ind_doc.R")
 
 # Data----
 mystm <- import("Clean_Data/mystm.rda")
@@ -75,7 +78,7 @@ new_prevalence %>%
   scale_x_continuous(labels = scales::percent) +
   labs(title = "Topic prevalence by theme",
        subtitle = "In the whole corpus",
-       fill = "Theme", y = NULL,
+       fill = "Frame", y = NULL,
        x = "Prevalence") +
   scale_fill_manual(values = c("#F8766D", "#00BA38", "#619CFF", "purple"))
 ```
@@ -193,11 +196,11 @@ tidy_gamma %>%
   ggplot(aes(order, gamma, fill = theme)) +
   geom_col(alpha = 0.7) +
   geom_hline(yintercept = 0.5) +
-  labs(title = "Distribution of themes on documents",
-       subtitle = "Grouped by Themes",
+  labs(title = "Distribution of frames on documents",
+       subtitle = "Grouped by frames",
        y = "Proportion",
        x = "Documents reordered",
-       fill = "Themes") +
+       fill = "Frames") +
   scale_y_continuous(labels = scales::percent)
 ```
 
@@ -235,8 +238,8 @@ tidy_gamma %>%
   geom_label(aes(label = scales::percent(gamma, 0.1)), position = position_stack(vjust = 0.5)) +
   scale_x_continuous(labels = scales::percent) +
   theme(legend.position = "top") +
-  labs(title = "Proportion of theme by document category",
-       fill = "Themes",
+  labs(title = "Proportion of frame by document category",
+       fill = "Frames",
        y = NULL,
        x = "Proportion")
 ```
@@ -244,76 +247,91 @@ tidy_gamma %>%
 ## In depth document analysis
 
 ```{r}
-gini_doc <- 
-  tidy_gamma %>% 
-  group_by(document) %>% 
-  summarise(gini = Gini(gamma)) %>% 
-  arrange(gini) %>% 
-  ungroup()
+# gini_doc <- 
+#   tidy_gamma %>% 
+#   group_by(document) %>% 
+#   summarise(gini = Gini(gamma)) %>% 
+#   arrange(gini) %>% 
+#   ungroup()
+# 
+# even_document <- mystm$meta$file[gini_doc$document[1]]
 
-even_document <- mystm$meta$file[gini_doc$document[1]]
+gini_doc <- ind_doc$get_gini_doc(tidy_gamma)
 ```
 
 Has we have seen before, (almost) all the documents have a dominant theme. But here we are interested by documents that have less predominant themes, mining more balanced distribution of themes. To assess that we compute the gini coefficient for each document to see which one are the less inequal (more balanced). A gini coefficient of 0 inidicate no inequality (all the themes in a document have the same proportion) wheras a value of 1 indicate that only one topic si dominant with 100% of the share in a given document. Generally we except more values in between, knowing that a Gini of 0.5 already indicate a high level of ditribution inequality. In our case, the document with the lowest gini score (the most equal) already scores 0.42 (quite high inequality), it was expected since all the document have a topic dominance. It is interesting to see what document it is and which topic tend to be distributed more evenly.
 
 The most even document is `r even_document`, with a gini score of `r gini_doc$gini[1]`. By ploting various way of visualizing the distribution of the topic, we can see that indeed the document share a big proportion of administrative framework and human/migrant rights. Even though this is an administrative text, we can see that other terms related to other themes are also part of the document.
 
-```{r echo=FALSE}
-even_document_vocab <- 
-  mydfm %>% 
-  tidy() %>% 
-  filter(str_detect(document, even_document)) %>% 
-  pull(term)
+```{r}
+ind_doc <- use("Scripts/Fun/ind_doc.R")
 
-even_document_term_theme <- 
-  tidy_beta %>% 
-  filter(term %in% even_document_vocab) %>% 
-  group_by(term) %>% 
-  top_n(beta, n = 1) %>% 
-  ungroup()
+most_even_id <- 
+  gini_doc %>% 
+  slice(1) %>% 
+  pull(document)
+
+res <- ind_doc$viz_ind_doc(gini_doc, most_even_id, 
+                           mydfm, mystm, 
+                           tidy_beta, mytext, 
+                           tidy_gamma, pose = FALSE)
+
+# res$page_graph
+
+(res$wordcloUd_graph | (res$pie_graph / res$page_graph)) +
+  plot_annotation(title = str_c("Frames distribution in the document '",
+                                res$param[[2]], "'"),
+                  subtitle = "Melilla’s municipality document")
+```
+
+```{r echo=FALSE}
+# To search document id
+base <- 
+  mystm$meta %>% 
+  mutate(document = row_number()) %>% 
+  left_join(gini_doc)
+
+# More even No Name Kitchen document
+nnk_id <- 
+  base %>% 
+  filter(category == "No Name Kitchen") %>% 
+  arrange(gini) %>% 
+  slice(1) %>% 
+  pull(document)
+
+# More even Frontex document
+frontex_id <- 
+  base %>% 
+  filter(category == "Frontex") %>% 
+  arrange(gini) %>% 
+  slice(1) %>% 
+  pull(document)
+```
+
+```{r}
+res_nnk <- ind_doc$viz_ind_doc(gini_doc, nnk_id, 
+                           mydfm, mystm, 
+                           tidy_beta, mytext, 
+                           tidy_gamma, pose = FALSE, 
+                           max_size = 40)
+
+(res_nnk$wordcloUd_graph | (res_nnk$pie_graph / res_nnk$page_graph)) +
+  plot_annotation(title = str_c("Frames distribution in the document '",
+                                res_nnk$param[[2]], "'"),
+                  subtitle = "No Name Kitchen's document")
 ```
 
 
-```{r fig.width=12, fig.height=6}
-# ggpage
-page_graph <-
-  mytext %>% 
-  tibble() %>% 
-  select(doc_id, text) %>% 
-  filter(str_detect(doc_id, even_document)) %>% 
-  unnest_tokens("text", "text", "sentences") %>% 
-  ggpage_build() %>% 
-  left_join(even_document_term_theme, by = join_by(word == term)) %>% 
-  ggpage_plot(aes(fill = theme), paper.color = "white", paper.show = TRUE) +
-  theme(legend.position = "none")
+```{r}
+res_frontex <- ind_doc$viz_ind_doc(gini_doc, frontex_id, 
+                           mydfm, mystm, 
+                           tidy_beta, mytext, 
+                           tidy_gamma, pose = FALSE)
 
-# Pie chart
-pie_graph <-
-  tidy_gamma %>% 
-  filter(document == gini_doc$document[1]) %>% 
-  ggplot(aes("", gamma, fill = theme)) +
-  geom_col(color = "black", alpha = 0.7, position = "stack") +
-  coord_polar(theta = "y") +
-  scale_y_continuous(labels = NULL) +
-  geom_label(aes(label = scales:::percent(gamma, 0.1)), position = position_stack(0.5), size = 2) +
-  labs(x = NULL, y = NULL, fill = "Theme") +
-  theme_void() +
-  theme(legend.position = "none")
-
-# Wordcloud
-set.seed(7)
-wordcloUd_graph <- 
-  even_document_term_theme %>% 
-  arrange(-beta) %>%
-  ggplot(aes(x = theme, label = term, size = beta, color = theme)) +
-  geom_text_wordcloud_area() +
-  scale_size_area(max_size = 24) +
-  theme_minimal()
-
-# Final plot
-(wordcloUd_graph | (pie_graph / page_graph)) +
-  plot_annotation(title = str_c("Themes distribution in the document ", even_document))
-
+(res_frontex$wordcloUd_graph | (res_frontex$pie_graph / res_frontex$page_graph)) +
+  plot_annotation(title = str_c("Frames distribution in the document '",
+                                res_frontex$param[[2]], "'"),
+                  subtitle = "Frontex' document")
 ```
 
 ## Regression models
