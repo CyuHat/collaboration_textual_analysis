@@ -334,6 +334,11 @@ res_frontex <- ind_doc$viz_ind_doc(gini_doc, frontex_id,
                   subtitle = "Frontex' document")
 ```
 
+```{r}
+
+```
+
+
 ## Regression models
 
 Finally, we check if metadata such as year of publication and author/category are more related to specific topics.

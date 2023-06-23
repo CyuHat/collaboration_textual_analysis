@@ -119,4 +119,10 @@ for_bootstrap <- function(id, tidy_gamma, mystm){
 
 all_map <- map(1:16, for_bootstrap, tidy_gamma, mystm)
 
-all_map
+# Next step----
+# TODO Understand the topical model functionning
+# TODO write about this method
+# TODO Try the QR regression
+# TODO Control the language effect
+# TODO If needed try with translation to spanish of some text
+# Try the simple visualization (bi-modal)
