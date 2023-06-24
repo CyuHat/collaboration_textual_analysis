@@ -29,6 +29,7 @@ pacman::p_load(modules, rio, tidyverse, stm, tidytext, ggwordcloud, sjPlot, Desc
 
 # Module----
 ind_doc <- use("Scripts/Fun/ind_doc.R")
+ours <- use("Scripts/Fun/ours.R")
 
 # Data----
 mystm <- import("Clean_Data/mystm.rda")
@@ -335,7 +336,10 @@ res_frontex <- ind_doc$viz_ind_doc(gini_doc, frontex_id,
 ```
 
 ```{r}
-
+# TODO find a way to put it in table
+reg <- ours$lm_stm(~ fyear + category,
+            3, topic_16,
+            mystm$meta %>% mutate(fyear = factor(year)))
 ```
 
 
@@ -395,7 +399,7 @@ tidy_reg$model %>%
 +-----------------------+------------------+--------------------+-------------------+
 | 1                     | 2                | 1.  Security       | Previous topic    |
 +-----------------------+------------------+--------------------+-------------------+
-| 3                     | 3                | 1.  Security       | Previous topic    |
+| 3                     | 3                |                    |                   |
 +-----------------------+------------------+--------------------+-------------------+
 | 4                     | 4                | 1.  Security       | Previous topic    |
 +-----------------------+------------------+--------------------+-------------------+
