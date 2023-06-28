@@ -11,9 +11,26 @@ mytext <- readtext("Raw_Data/",
 # Save the data
 export(mytext, file = "Clean_Data/mytext.rda")
 
+# In case we reclean
+# load("Clean_Data/mytext.rda")
+# mytext <-
+#   mytext %>%
+#   tibble() %>%
+#   mutate(text = str_replace_all(text, "_", " "),
+#          text = str_remove_all(text, "[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\\.\\,\\-\\n ]"),
+#          text = str_remove_all(text, "yyyymm(dd)?"),
+#          text = str_remove_all(text, "(http|www).+"),
+#          text = str_remove_all(text, "(BOLETN\\s|ARTCULO)?BOME-\\w-\\d{1,4}-\\d{1,5}(\\sCVE\\sverificable\\sen)?(\\sBOME)?"))
+
+# mytext %>%
+#   filter(str_detect(text, "\n")) %>%
+#   head()
+
 # Cleaning----
 ##  Corpus----
 mycorpus <- corpus(mytext) 
+
+# kwic(mycorpus, "bome")
 
 # Save the corpus
 export(mycorpus, file = "Clean_Data/mycorpus.rds")

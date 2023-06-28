@@ -38,7 +38,7 @@ topic_16 <- import("Clean_Data/topic_16.rda")
 full_stm <- import("Clean_Data/full_stm.rda")
 tidy_gamma <- import("Clean_Data/tidy_gamma.rda")
 tidy_beta <- import("Clean_Data/tidy_beta.rda")
-topic_prevalence <- import("Clean_Data/topic_prevalence.rda")
+frame_prevalence <- import("Clean_Data/frame_prevalence.rda")
 mytext <- import("Clean_Data/mytext.rda")
 
 # Options----
@@ -59,20 +59,11 @@ For the analysis we chose to use 16 topics to have a more refined distribution o
 Here is an illustration on how the topics are distributed:
 
 ```{r echo=FALSE}
-new_prevalence <- 
-  topic_prevalence %>% 
-  mutate(theme = case_when(
-           topic %in% c(2, 4, 13) ~ "1.Security", # Topic 3 already removed
-           topic %in% c(5, 9, 16) ~ "2.Human rights",
-           topic == 3 ~ "None",
-           TRUE ~ "3.Administration"
-         ),
-         topic = str_c("Topic ", topic),
-         topic = reorder(topic, topic_prev))
+
 ```
 
 ```{r}
-new_prevalence %>% 
+frame_prevalence %>% 
   ggplot(aes(topic_prev, topic, fill = theme)) +
   geom_col(color = "black", alpha = 0.4) +
   geom_label(aes(label = scales::percent(topic_prev, 0.1))) +
@@ -150,7 +141,7 @@ tidy_wordcloud %>%
 The Administrative framework represents a half of the theme, wheras the Securitization framework represent ~30% and the human/migrant rights framework represent ~20%.
 
 ```{r}
-new_prevalence %>% 
+frame_prevalence %>% 
   filter(theme != "None") %>% 
   group_by(theme) %>% 
   summarise(topic_prev = sum(topic_prev)) %>% 

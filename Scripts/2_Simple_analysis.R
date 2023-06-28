@@ -1,8 +1,8 @@
 # Libraries----
 pacman::p_load(rio, dplyr, ggplot2,
-               tidyr, stm, tictoc,
-               tidytext, purrr, tibble,
-               broom, car, betareg)
+               tidyr, stm, stringr,
+               tidytext, tibble,
+               broom)
 
 # Data----
 topic_16 <- import("Clean_Data/topic_16.rda")
@@ -35,6 +35,7 @@ topic_prevalence <-
   tibble(topic_prev =.) %>% 
   rowid_to_column("topic")
 
+# Word probability knowing topic
 tidy_beta <- 
   tidy_beta_raw %>% 
   left_join(topic_prevalence) %>%
@@ -50,8 +51,33 @@ tidy_beta <-
   summarise(beta = sum(beta)) %>% 
   ungroup()
 
+# Prevalence with 3 frames
+frame_prevalence <- 
+  topic_prevalence %>% 
+  mutate(theme = case_when(
+    topic %in% c(2, 4, 13) ~ "1.Security", # Topic 3 already removed
+    topic %in% c(5, 9, 16) ~ "2.Human rights",
+    topic == 3 ~ "None",
+    TRUE ~ "3.Administration"
+  ),
+  topic = str_c("Topic ", topic),
+  topic = reorder(topic, topic_prev))
+
 save(tidy_beta, tidy_beta_raw, file = "Clean_Data/tidy_beta.rda")
-save(topic_prevalence, file = "Clean_Data/topic_prevalence.rda")
+save(frame_prevalence, file = "Clean_Data/frame_prevalence.rda")
+
+# Word topic probability
+word_topic_prob <- 
+  tidy_beta %>% 
+  left_join(
+    frame_prevalence %>% 
+      summarise(topic_prev = sum(topic_prev), .by = theme) %>% 
+      filter(theme!="None") %>% 
+      mutate(topic_prev = topic_prev/sum(topic_prev))) %>% 
+  mutate(p = beta*topic_prev) %>% 
+  mutate(word_prop = p/sum(p), .by = term)
+
+save(word_topic_prob, file = "Clean_Data/word_topic_prob.rda")
 
 # Full file
 full_stm <- 
@@ -64,65 +90,10 @@ full_stm <-
 
 export(full_stm, file = "Clean_Data/full_stm.rda")
 
-# Test----
-## Label topic
-labelTopics(topic_16)
-
-## Representatives document
-findThoughts(topic_16, mystm$meta$file, n = 3)
-
-## Topic correlation (useless)
-topicCorr(topic_16) %>% 
-  plot()
-
-# Summary
-plot(topic_16, type = "summary")
-
-View(plot.STM)
-
-# Regressions
-# TODO Find a way to account for "Global" uncertainty
-mystm$meta$fyear <- factor(mystm$meta$year)
-
-reg <- estimateEffect(1:16 ~ fyear + category,
-                      # uncertainty = "None",
-                      topic_16, mystm$meta
-                      )
-summary(reg)
-
-# tidygamma----
-mystm$meta$document <- 1:nrow(mystm$meta)
-
-(tidy_reg <- 
-  tidy_gamma %>% 
-  left_join(mystm$meta) %>% 
-  group_by(topic) %>% 
-  nest() %>% 
-  mutate(model = map(data, ~ lm(gamma ~ fyear + category, data = .x)),
-         summary = map(model, ~ summary(.x))))
-# Result are really similar to the one of Estimate effect with uncertainty = "None"
-
-# Regression model
-sjPlot::tab_model(tidy_reg$model)
-
-# Function just in case
-for_bootstrap <- function(id, tidy_gamma, mystm){
-  model <- 
-    tidy_gamma %>% 
-    left_join(mystm$meta) %>% 
-    filter(topic == id)
-  
-  lm(gamma ~ fyear + category, model) %>% 
-    Boot(ncores = 2) %>% 
-    tidy(conf.int = TRUE)
-}
-
-all_map <- map(1:16, for_bootstrap, tidy_gamma, mystm)
-
 # Next step----
 # TODO Understand the topical model functionning
 # TODO write about this method
 # TODO Try the QR regression
 # TODO Control the language effect
 # TODO If needed try with translation to spanish of some text
-# Try the simple visualization (bi-modal)
+# TODO Try the simple visualization (bi-modal)
