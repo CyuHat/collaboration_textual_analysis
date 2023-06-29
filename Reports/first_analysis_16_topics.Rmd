@@ -25,7 +25,9 @@ To ensure a comprehensive record, we have included a detailed description of the
 
 ```{r echo =FALSE}
 # Libraries----
-pacman::p_load(modules, rio, tidyverse, stm, tidytext, ggwordcloud, sjPlot, DescTools, ggpage, quanteda, patchwork)
+pacman::p_load(modules, rio, tidyverse, stm, tidytext, ggwordcloud, 
+               sjPlot, DescTools, ggpage,quanteda, patchwork,
+               ggrepel)
 
 # Module----
 ind_doc <- use("Scripts/Fun/ind_doc.R")
@@ -203,7 +205,8 @@ When we plot the themes prevalence by author/category, we clearly see that some 
 *Note: The graph is awful, I will think of a better way to draw it.*
 
 ```{r}
-tidy_gamma %>% 
+frame_author_prevalence <- 
+  tidy_gamma %>% 
   left_join(mystm$meta %>% 
               rowid_to_column("document") %>% 
               select(document, category, year)) %>% 
@@ -224,13 +227,16 @@ tidy_gamma %>%
   arrange(o_admin, category) %>% 
   ungroup() %>% 
   mutate(order = rep(1:8, each = 3),
-         category = reorder(category, order)) %>% 
+         category = reorder(category, order))
+
+frame_author_prevalence %>% 
   ggplot(aes(gamma, category, fill = theme)) +
   geom_col(alpha = 0.4, color = "black") +
-  geom_label(aes(label = scales::percent(gamma, 0.1)), position = position_stack(vjust = 0.5)) +
+  geom_label(data = filter(frame_author_prevalence, gamma > 0.001),
+             aes(label = scales::percent(gamma, 0.1)), position = position_stack(vjust = 0.5)) +
   scale_x_continuous(labels = scales::percent) +
   theme(legend.position = "top") +
-  labs(title = "Proportion of frame by document category",
+  labs(title = str_c("Figure ", 2, ": ", "Proportion of frame by document's author"),
        fill = "Frames",
        y = NULL,
        x = "Proportion")
@@ -271,7 +277,7 @@ res <- ind_doc$viz_ind_doc(gini_doc, most_even_id,
 # res$page_graph
 
 (res$wordcloUd_graph | (res$pie_graph / res$page_graph)) +
-  plot_annotation(title = str_c("Frames distribution in the document '",
+  plot_annotation(title = str_c("Figure ", 3, ": ", "Frames distribution in the document '",
                                 res$param[[2]], "'"),
                   subtitle = "Melilla’s municipality document")
 ```
@@ -308,7 +314,7 @@ res_nnk <- ind_doc$viz_ind_doc(gini_doc, nnk_id,
                            max_size = 40)
 
 (res_nnk$wordcloUd_graph | (res_nnk$pie_graph / res_nnk$page_graph)) +
-  plot_annotation(title = str_c("Frames distribution in the document '",
+  plot_annotation(title = str_c("Figure ", 4, ": ", "Frames distribution in the document '",
                                 res_nnk$param[[2]], "'"),
                   subtitle = "No Name Kitchen's document")
 ```
@@ -321,7 +327,7 @@ res_frontex <- ind_doc$viz_ind_doc(gini_doc, frontex_id,
                            tidy_gamma, pose = FALSE)
 
 (res_frontex$wordcloUd_graph | (res_frontex$pie_graph / res_frontex$page_graph)) +
-  plot_annotation(title = str_c("Frames distribution in the document '",
+  plot_annotation(title = str_c("Figure ", 5, ": ", "Frames distribution in the document '",
                                 res_frontex$param[[2]], "'"),
                   subtitle = "Frontex' document")
 ```
@@ -330,7 +336,45 @@ res_frontex <- ind_doc$viz_ind_doc(gini_doc, frontex_id,
 # TODO find a way to put it in table
 reg <- ours$lm_stm(~ fyear + category,
             3, topic_16,
+            nsims = 25,
             mystm$meta %>% mutate(fyear = factor(year)))
+```
+
+
+```{r}
+df_regression <- 
+  map_dfc(reg$tables, ours$reg_tab) %>% 
+  janitor::clean_names() %>% 
+  select(coef = coef_1,
+         "1. Security" = estm_2,
+         "2. Migrant rights" = estm_4,
+         "3. Administration" = estm_6) %>% 
+  mutate(type = case_when(
+    coef == "(Intercept)" ~ "",
+    str_detect(coef, "\\d{4}") ~ "Year\nref: 2021",
+    TRUE ~ "Author\nref: Ceuta"
+  ), .before = 1)
+
+tbl_regression <- 
+  df_regression %>% 
+  flextable::as_grouped_data(groups = "type") %>% 
+  slice(-1) %>% 
+  flextable::flextable() %>% 
+  flextable::merge_v(1) %>% 
+  flextable::theme_box() %>% 
+  flextable::merge_h_range(i = c(2, 5), j1 = "type", j2 = "3. Administration") %>% 
+  flextable::align_text_col(align = "center") %>% 
+  flextable::align(i = c(2, 5)) %>% 
+  flextable::set_header_labels(values = list(type = "",
+                                             coef = "variable")) %>% 
+  flextable::add_header_lines(values = "Relationship between frames and metadata") %>% 
+  flextable::add_header_lines(values = "QR decomposition regression") %>% 
+  flextable::add_footer_lines(values = "Observations (N = 223)") %>% 
+  flextable::add_footer_lines(values = "p<0.05 ** p<0.01 *** p<0.001 ") %>% 
+  flextable::autofit()
+
+flextable::save_as_docx(tbl_regression, path = "Results/Tables/QR_regression.docx")
+
 ```
 
 
@@ -356,26 +400,30 @@ Compared to the administration of Ceuta, "Asociacion Elin", (to a lesser extent)
 Finally all the categories have lesser chance than Ceuta to have the Administrative framework in their document. But the difference is lower for Melilla than the other categories.
 
 ```{r}
-tidy_reg <- 
-  tidy_gamma %>% 
-  left_join(mystm$meta %>% 
-              rowid_to_column("document") %>% 
-              transmute(document,
-                        fyear = factor(year),
-                        category)) %>% 
-  group_by(theme) %>% 
-  nest() %>% 
-  mutate(model = map(data, ~lm(gamma ~ fyear + category, data = .x)))
+# tidy_reg <- 
+#   tidy_gamma %>% 
+#   left_join(mystm$meta %>% 
+#               rowid_to_column("document") %>% 
+#               transmute(document,
+#                         fyear = factor(year),
+#                         category)) %>% 
+#   group_by(theme) %>% 
+#   nest() %>% 
+#   mutate(model = map(data, ~lm(gamma ~ fyear + category, data = .x)))
+# 
+# tidy_reg$model %>% 
+#   tab_model(collapse.ci = TRUE,
+#             show.ci = TRUE,
+#             p.style = "stars",
+#             bootstrap = TRUE,
+#             dv.labels = c("1.Security",
+#                           "2.Human rights",
+#                           "3.Administration"),
+#             title = "Relationship between themes and metadata")
+```
 
-tidy_reg$model %>% 
-  tab_model(collapse.ci = TRUE,
-            show.ci = TRUE,
-            p.style = "stars",
-            bootstrap = TRUE,
-            dv.labels = c("1.Security",
-                          "2.Human rights",
-                          "3.Administration"),
-            title = "Relationship between themes and metadata")
+```{r}
+tbl_regression
 ```
 
 
