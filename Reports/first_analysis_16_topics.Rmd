@@ -99,7 +99,7 @@ tidy_wordcloud %>%
   geom_text_wordcloud() +
   scale_size_area(max_size = 15) +
   theme_minimal() +
-  labs(title = "Securitization framework wordcloud",
+  labs(title = "Security frame wordcloud",
        subtitle = "Highest probability word") +
   scale_color_gradient(low = "darkred", high = "red")
 ```
@@ -115,7 +115,7 @@ tidy_wordcloud %>%
   geom_text_wordcloud() +
   scale_size_area(max_size = 15) +
   theme_minimal() +
-  labs(title = "Human rights / migrant rights framework wordcloud",
+  labs(title = "Migrant rights frame wordcloud",
        subtitle = "Highest probability word") +
   scale_color_gradient(low = "darkgreen", high = "green")
 ```
@@ -131,7 +131,7 @@ tidy_wordcloud %>%
   geom_text_wordcloud() +
   scale_size_area(max_size = 15) +
   theme_minimal() +
-  labs(title = "Administrative framework wordcloud",
+  labs(title = "Administration frame wordcloud",
        subtitle = "Highest probability word") +
   scale_color_gradient(low = "darkblue", high = "blue")
 ```
