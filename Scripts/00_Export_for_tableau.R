@@ -1,8 +1,8 @@
 # Libraries----
 pacman::p_load(rio, tidyverse, quanteda,
                FactoMineR, factoextra,
-               DescTools,
-               xlsx)
+               DescTools, tidytext,
+               xlsx, tibble)
 
 # Data ----
 word_topic_prob <- import("Clean_Data/word_topic_prob.rda")
@@ -65,7 +65,7 @@ top_word_MR <-
   mutate(theme = str_remove(theme, "\\d\\.")) %>% 
   spread(theme, p) %>% 
   janitor::clean_names() %>% 
-  filter(human_rights >=0.5) %>% 
+  filter(migrant_rights >=0.5) %>% 
   pull(term)
 
 ### Top word Security area----
@@ -124,19 +124,58 @@ final_selection <- c(top_word_MR,
                      top_word_cluster,
                      key_words)
 
-final_word_topic <- 
+final_word_topic <-
   word_topic_prob %>% 
   filter(term %in% final_selection) %>% 
   select(Terms = term, theme, p = word_prop) %>%
   mutate(theme = str_remove(theme, "\\d\\.")) %>% 
+  mutate(p = (p+0.05)/sum(p+0.05), .by = Terms) %>%
   spread(theme, p) %>% 
-  rename("Migrant rights" = "Human rights") %>% 
+  # rename("Migrant rights" = "Human rights") %>% 
   mutate_at(vars("Administration", "Migrant rights", "Security"),
-            round, 2) %>% 
-  janitor::adorn_pct_formatting()
+            round, 2)
+  
 
 final_word_topic %>% 
+  janitor::adorn_pct_formatting() %>% 
   write.xlsx("Clean_Data/List_of_Terms_proximity_per_topic.xlsx")
+
+# Finale filter----
+## Data----
+# Last list filtered manual by us
+final_filter <- 
+  read.xlsx("Results/Tables/List_of_Terms_proximity_per_topic_filtered.xlsx",
+          sheetIndex = 1) %>% 
+  pull(Terms)
+
+mytext <- import("Clean_Data/mytext.rda")
+
+# Last
+final_word_topic_filtered <- 
+  final_word_topic %>% 
+  filter(Terms %in% final_filter,
+         Terms != "mohatar")
+
+exportable_table <-
+  mytext %>% 
+  tibble() %>% 
+  select(Actor = category, text) %>% 
+  unnest_tokens("Terms", "text") %>% 
+  distinct() %>% 
+  filter(Terms %in% final_filter,
+         Terms != "mohatar") %>% 
+  left_join(final_word_topic_filtered) %>% 
+  rowid_to_column("ID") %>% 
+  select(ID, Actor, 
+         Text = Terms,
+         pR = Security,
+         pG = `Migrant rights`,
+         pB = Administration) %>% 
+  drop_na()
+
+exportable_table %>% 
+  write.xlsx("Results/Tables/VestinData.xlsx",
+             sheetName = "Data")
 
 # Good formating
 # FIXME don't remove this

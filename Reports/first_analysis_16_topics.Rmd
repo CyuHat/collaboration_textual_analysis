@@ -25,7 +25,7 @@ To ensure a comprehensive record, we have included a detailed description of the
 
 ```{r echo =FALSE}
 # Libraries----
-pacman::p_load(modules, rio, tidyverse, stm, tidytext, ggwordcloud, 
+pacman::p_load(rio, tidyverse, stm, tidytext, ggwordcloud, 
                sjPlot, DescTools, ggpage,quanteda, patchwork,
                ggrepel)
 
@@ -34,14 +34,14 @@ ind_doc <- use("Scripts/Fun/ind_doc.R")
 ours <- use("Scripts/Fun/ours.R")
 
 # Data----
-mystm <- import("Clean_Data/mystm.rda")
-mydfm <- import("Clean_Data/mydfm.rda")
-topic_16 <- import("Clean_Data/topic_16.rda")
-full_stm <- import("Clean_Data/full_stm.rda")
-tidy_gamma <- import("Clean_Data/tidy_gamma.rda")
-tidy_beta <- import("Clean_Data/tidy_beta.rda")
-frame_prevalence <- import("Clean_Data/frame_prevalence.rda")
-mytext <- import("Clean_Data/mytext.rda")
+mystm <- rio::import("Clean_Data/mystm.rda")
+mydfm <- rio::import("Clean_Data/mydfm.rda")
+topic_16 <- rio::import("Clean_Data/topic_16.rda")
+full_stm <- rio::import("Clean_Data/full_stm.rda")
+tidy_gamma <- rio::import("Clean_Data/tidy_gamma.rda")
+tidy_beta <- rio::import("Clean_Data/tidy_beta.rda")
+frame_prevalence <- rio::import("Clean_Data/frame_prevalence.rda")
+mytext <- rio::import("Clean_Data/mytext.rda")
 
 # Options----
 theme_set(theme_bw())
@@ -53,16 +53,12 @@ For the analysis we chose to use 16 topics to have a more refined distribution o
 
 1.  **(Security) Securitization framework**
     -   Topics: 2, 3, 4, 13
-2.  **(Human right) Human rights / migrant rights framework**
+2.  **(migrant right) migrant rights / migrant rights framework**
     -   Topics: 7, 9, 16
 3.  **(Administration) Administrative framework**
     -   Topics: 1, 5, 6, 8, 10, 12
 
 Here is an illustration on how the topics are distributed:
-
-```{r echo=FALSE}
-
-```
 
 ```{r}
 frame_prevalence %>% 
@@ -104,12 +100,12 @@ tidy_wordcloud %>%
   scale_color_gradient(low = "darkred", high = "red")
 ```
 
-### (Human right) Human rights / migrant rights framework
+### (migrant right) migrant rights / migrant rights framework
 
 ```{r}
 set.seed(7)
 tidy_wordcloud %>% 
-  filter(theme == "2.Human rights") %>% 
+  filter(theme == "2.Migrant rights") %>% 
   arrange(-beta) %>% 
   ggplot(aes(label = term, size = beta, color = beta)) +
   geom_text_wordcloud() +
@@ -200,7 +196,7 @@ tidy_gamma %>%
 
 ### Prevalence by author/category
 
-When we plot the themes prevalence by author/category, we clearly see that some topic are more relate to certain institutions. Whithout surprise, human right oriented institution tend to have a bigger proportion of human/migrant right framework wheras institution from Mellila and Ceuta have more administrative framework. The "Policia Nacional", the "Guarida Civil" and Frontex tend to have more Securitization framework. We also highlight that the institution of Meililla have a good share of Securitization framework (23.6%), which is more than the administration of Ceuta.
+When we plot the themes prevalence by author/category, we clearly see that some topic are more relate to certain institutions. Whithout surprise, migrant right oriented institution tend to have a bigger proportion of human/migrant right framework wheras institution from Mellila and Ceuta have more administrative framework. The "Policia Nacional", the "Guarida Civil" and Frontex tend to have more Securitization framework. We also highlight that the institution of Meililla have a good share of Securitization framework (23.6%), which is more than the administration of Ceuta.
 
 *Note: The graph is awful, I will think of a better way to draw it.*
 
@@ -355,7 +351,7 @@ df_regression <-
     TRUE ~ "Author\nref: Ceuta"
   ), .before = 1)
 
-tbl_regression <- 
+# tbl_regression <- 
   df_regression %>% 
   flextable::as_grouped_data(groups = "type") %>% 
   slice(-1) %>% 
@@ -364,7 +360,7 @@ tbl_regression <-
   flextable::theme_box() %>% 
   flextable::merge_h_range(i = c(2, 5), j1 = "type", j2 = "3. Administration") %>% 
   flextable::align_text_col(align = "center") %>% 
-  flextable::align(i = c(2, 5)) %>% 
+  # flextable::align(i = c(2, 5), j = 1:5)
   flextable::set_header_labels(values = list(type = "",
                                              coef = "variable")) %>% 
   flextable::add_header_lines(values = "Relationship between frames and metadata") %>% 
@@ -391,7 +387,7 @@ In the model our reference level for the categories (so the group we will compar
 As we have seen with previously the only categories that have more chance on having the Securitization theme are oubvious ones ("Frontex", "Guardia Civil", "Policia
 nacional"). All af theses categories have positive coefficient and p-values lower than 0.05. We can also see as previously noticed that Melilla has more topic on Securitization framework than ceuta.
 
-**Human rights model**
+**migrant rights model**
 
 Compared to the administration of Ceuta, "Asociacion Elin", (to a lesser extent) "Frontex", "No Name Kitchen", "Solidary Wheels" show higher chance of having human/migrant rights framework in their documents.
 
@@ -417,7 +413,7 @@ Finally all the categories have lesser chance than Ceuta to have the Administrat
 #             p.style = "stars",
 #             bootstrap = TRUE,
 #             dv.labels = c("1.Security",
-#                           "2.Human rights",
+#                           "2.migrant rights",
 #                           "3.Administration"),
 #             title = "Relationship between themes and metadata")
 ```
@@ -464,7 +460,7 @@ tbl_regression
 +-----------------------+------------------+--------------------+-------------------+
 | 14                    | 15               | 3.  Administration | Previous topic    |
 +-----------------------+------------------+--------------------+-------------------+
-| 16                    | 16               | 2.  Human right    | Previous topic    |
+| 16                    | 16               | 2.  migrant right    | Previous topic    |
 +-----------------------+------------------+--------------------+-------------------+
 
 : Tracking changes in topics

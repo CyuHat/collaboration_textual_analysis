@@ -16,7 +16,7 @@ tidy_gamma <-
   filter(topic != 3) %>% 
   mutate(theme = case_when(
     topic %in% c(2:4, 13) ~ "1.Security", # Topic 3 already removed
-    topic %in% c(5, 9, 16) ~ "2.Human rights",
+    topic %in% c(5, 9, 16) ~ "2.Migrant rights",
     TRUE ~ "3.Administration"
   ), .before = topic) %>% 
   group_by(document, theme) %>% 
@@ -42,7 +42,7 @@ tidy_beta <-
   filter(topic != 3) %>% 
   mutate(theme = case_when(
     topic %in% c(2:4, 13) ~ "1.Security", # Topic 3 already removed
-    topic %in% c(5, 9, 16) ~ "2.Human rights",
+    topic %in% c(5, 9, 16) ~ "2.Migrant rights",
     TRUE ~ "3.Administration"
   ), .before = topic) %>% 
   group_by(term, theme) %>% 
@@ -56,7 +56,7 @@ frame_prevalence <-
   topic_prevalence %>% 
   mutate(theme = case_when(
     topic %in% c(2, 4, 13) ~ "1.Security", # Topic 3 already removed
-    topic %in% c(5, 9, 16) ~ "2.Human rights",
+    topic %in% c(5, 9, 16) ~ "2.Migrant rights",
     topic == 3 ~ "None",
     TRUE ~ "3.Administration"
   ),

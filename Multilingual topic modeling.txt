@@ -1,9 +1,0 @@
-Multilingual topic modeling
-
-Multilingual corpus: "We will do reverse engineering", "Keep in mind bilingual for wordcloud"
-https://www.semanticscholar.org/paper/Working-PaPer-A-Bridge-Over-the-Language-Gap%3A-Topic-Lind-Eberl/fee178e027e606a6d12d334cb9897a6239d04f2c
-
-https://ec.europa.eu/research/participants/documents/downloadPublic?documentIds=080166e5c705f26a&appId=PPGMS
-
-https://www.google.com/search?client=firefox-b-d&q=a+bridge+over+the+language+gap%3A+Topic+Modeling+for+text+analysis#ip=1
-
