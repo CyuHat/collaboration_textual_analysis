@@ -30,8 +30,8 @@ pacman::p_load(rio, tidyverse, stm, tidytext, ggwordcloud,
                ggrepel)
 
 # Module----
-ind_doc <- use("Scripts/Fun/ind_doc.R")
-ours <- use("Scripts/Fun/ours.R")
+ind_doc <- modules::use("Scripts/Fun/ind_doc.R")
+ours <- modules::use("Scripts/Fun/ours.R")
 
 # Data----
 mystm <- rio::import("Clean_Data/mystm.rda")
@@ -258,7 +258,7 @@ Has we have seen before, (almost) all the documents have a dominant theme. But h
 The most even document is `r even_document`, with a gini score of `r gini_doc$gini[1]`. By ploting various way of visualizing the distribution of the topic, we can see that indeed the document share a big proportion of administrative framework and human/migrant rights. Even though this is an administrative text, we can see that other terms related to other themes are also part of the document.
 
 ```{r}
-ind_doc <- use("Scripts/Fun/ind_doc.R")
+ind_doc <- modules::use("Scripts/Fun/ind_doc.R")
 
 most_even_id <- 
   gini_doc %>% 
@@ -351,7 +351,7 @@ df_regression <-
     TRUE ~ "Author\nref: Ceuta"
   ), .before = 1)
 
-# tbl_regression <- 
+tbl_regression <-
   df_regression %>% 
   flextable::as_grouped_data(groups = "type") %>% 
   slice(-1) %>% 
