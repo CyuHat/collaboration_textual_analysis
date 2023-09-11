@@ -1,0 +1,65 @@
+# library----
+pacman::p_load(rio, readtext, quanteda, dplyr,
+               stringr, tidytext, readr, purrr,
+               textcat)
+
+# data----
+
+
+
+# Cleaning----
+##  Corpus----
+mycorpus <- corpus(mytext) 
+
+# kwic(mycorpus, "bome")
+
+# Save the corpus
+export(mycorpus, file = "Clean_Data/mycorpus.rds")
+
+## Document-Feature matrix----
+## List of element to remove using regex
+regex_list = list("n\\º\\.",
+                  "^\\d\\w+",
+                  "\\w+\\d$",
+                  "_",
+                  "\\w+(\\.|\\,)\\w+")
+
+## dfm
+## Note: Take 1 minute
+mydfm <- 
+  mycorpus %>% 
+  tokens(remove_punct = TRUE,
+         remove_symbols = TRUE,
+         remove_numbers = TRUE,
+         remove_url = TRUE,
+         remove_separators = TRUE,
+         split_hyphens = TRUE,
+         split_tags = TRUE) %>% 
+  dfm() %>% 
+  dfm_remove(c(stopwords("spanish"), stopwords("english"))) %>% 
+  dfm_select(selection = "remove",
+             valuetype = "regex",
+             min_nchar = 3,
+             pattern = regex_list) %>% 
+  dfm_tolower()
+
+# Save the dfm
+export(mydfm, file = "Clean_data/mydfm.rds")
+
+# Convert to stm
+mystm <- convert(mydfm, to = "stm")
+
+# Save stm format
+export(mystm, file = "Clean_Data/mystm.rds")
+
+# Next step ----
+# TODO [Vestin] (optional) install the "reprex" package for easly sharing bug
+# TODO [Vestin] (optional) rename the file to know better what they are about (can be confusing in topic modeling)
+# TODO [Vestin] Transform "mytext" into corpus
+# TODO [Vestin] Tokenize the corpus (cleaning part)
+# TODO [Vestin] Transform the tokens into dfm (document feature matrix)
+# TODO [Vestin] Transform the dfm into a stm 
+# TODO [Vestin] Search the right number of topics
+# TODO [Vestin] DO the topic modeling
+# TODO [Vestin] Analyse the result, correct and redo if needed
+# TODO [Vestin] Create vizualisations
